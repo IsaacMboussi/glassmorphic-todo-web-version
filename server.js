@@ -30,6 +30,18 @@ const connectDB = async () => {
     const maxRetries = 5;
     let retries = 0;
 
+    // Validate MongoDB URI
+    if (!process.env.MONGODB_URI) {
+        console.error('MONGODB_URI environment variable is not set');
+        return;
+    }
+
+    // Check if the connection string starts with the correct scheme
+    if (!process.env.MONGODB_URI.startsWith('mongodb://') && !process.env.MONGODB_URI.startsWith('mongodb+srv://')) {
+        console.error('Invalid MongoDB connection string format. Must start with mongodb:// or mongodb+srv://');
+        return;
+    }
+
     while (retries < maxRetries) {
         try {
             console.log(`Attempting to connect to MongoDB (attempt ${retries + 1}/${maxRetries})...`);
