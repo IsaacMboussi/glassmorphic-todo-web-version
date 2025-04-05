@@ -68,13 +68,13 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`${API_URL}/tasks`);
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
                 if (response.status === 503 && retryCount < 3) {
                     // Wait for 2 seconds before retrying
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     return loadTasks(retryCount + 1);
                 }
-                throw new Error(errorData.message || 'Failed to load tasks');
+                throw new Error(errorData.message || `Failed to load tasks: ${response.status}`);
             }
             const tasks = await response.json();
             displayTasks(tasks);
@@ -142,13 +142,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
+                const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
                 if (response.status === 503 && retryCount < 3) {
                     // Wait for 2 seconds before retrying
                     await new Promise(resolve => setTimeout(resolve, 2000));
                     return addTask(text, date, retryCount + 1);
                 }
-                throw new Error(errorData.message || 'Failed to add task');
+                throw new Error(errorData.message || `Failed to add task: ${response.status}`);
             }
 
             const newTask = await response.json();
