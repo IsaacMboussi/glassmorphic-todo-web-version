@@ -20,23 +20,49 @@ app.use(express.json());
 // Serve static files from the root directory
 app.use(express.static(path.join(__dirname)));
 
-// MongoDB Connection with timeout
+// MongoDB Connection with retry logic
 const connectDB = async () => {
-    try {
-        await mongoose.connect(process.env.MONGODB_URI, {
-            useNewUrlParser: true,
-            useUnifiedTopology: true,
-            serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-            socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-        });
-        console.log('Connected to MongoDB');
-    } catch (err) {
-        console.error('MongoDB connection error:', err);
-        // Don't exit the process, just log the error
+    const maxRetries = 5;
+    let retries = 0;
+
+    while (retries < maxRetries) {
+        try {
+            await mongoose.connect(process.env.MONGODB_URI, {
+                useNewUrlParser: true,
+                useUnifiedTopology: true,
+                serverSelectionTimeoutMS: 5000,
+                socketTimeoutMS: 45000,
+                retryWrites: true,
+                w: 'majority'
+            });
+            console.log('Connected to MongoDB successfully');
+            return;
+        } catch (err) {
+            retries++;
+            console.error(`MongoDB connection attempt ${retries} failed:`, err);
+            if (retries === maxRetries) {
+                console.error('Max retries reached. Could not connect to MongoDB');
+                // Don't exit, just log the error
+            } else {
+                // Wait for 5 seconds before retrying
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+        }
     }
 };
 
+// Initial connection
 connectDB();
+
+// Handle MongoDB connection events
+mongoose.connection.on('disconnected', () => {
+    console.log('MongoDB disconnected. Attempting to reconnect...');
+    connectDB();
+});
+
+mongoose.connection.on('error', (err) => {
+    console.error('MongoDB connection error:', err);
+});
 
 // Task Schema
 const taskSchema = new mongoose.Schema({
@@ -71,7 +97,11 @@ app.use((err, req, res, next) => {
 app.get('/api/tasks', async (req, res) => {
     try {
         if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({ message: 'Database connection not ready' });
+            console.log('Database not ready, attempting to reconnect...');
+            await connectDB();
+            if (mongoose.connection.readyState !== 1) {
+                return res.status(503).json({ message: 'Database connection not ready' });
+            }
         }
         const tasks = await Task.find().sort({ createdAt: -1 });
         res.json(tasks);
@@ -85,7 +115,11 @@ app.get('/api/tasks', async (req, res) => {
 app.post('/api/tasks', async (req, res) => {
     try {
         if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({ message: 'Database connection not ready' });
+            console.log('Database not ready, attempting to reconnect...');
+            await connectDB();
+            if (mongoose.connection.readyState !== 1) {
+                return res.status(503).json({ message: 'Database connection not ready' });
+            }
         }
         console.log('Received task creation request:', req.body);
         
@@ -111,7 +145,11 @@ app.post('/api/tasks', async (req, res) => {
 app.patch('/api/tasks/:id', async (req, res) => {
     try {
         if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({ message: 'Database connection not ready' });
+            console.log('Database not ready, attempting to reconnect...');
+            await connectDB();
+            if (mongoose.connection.readyState !== 1) {
+                return res.status(503).json({ message: 'Database connection not ready' });
+            }
         }
         const task = await Task.findById(req.params.id);
         if (task) {
@@ -136,7 +174,11 @@ app.patch('/api/tasks/:id', async (req, res) => {
 app.delete('/api/tasks/:id', async (req, res) => {
     try {
         if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({ message: 'Database connection not ready' });
+            console.log('Database not ready, attempting to reconnect...');
+            await connectDB();
+            if (mongoose.connection.readyState !== 1) {
+                return res.status(503).json({ message: 'Database connection not ready' });
+            }
         }
         const task = await Task.findById(req.params.id);
         if (task) {
@@ -155,7 +197,11 @@ app.delete('/api/tasks/:id', async (req, res) => {
 app.delete('/api/tasks/completed/all', async (req, res) => {
     try {
         if (mongoose.connection.readyState !== 1) {
-            return res.status(503).json({ message: 'Database connection not ready' });
+            console.log('Database not ready, attempting to reconnect...');
+            await connectDB();
+            if (mongoose.connection.readyState !== 1) {
+                return res.status(503).json({ message: 'Database connection not ready' });
+            }
         }
         await Task.deleteMany({ completed: true });
         res.json({ message: 'All completed tasks deleted' });

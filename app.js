@@ -63,12 +63,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // Function to load tasks
-    async function loadTasks() {
+    // Function to load tasks with retry
+    async function loadTasks(retryCount = 0) {
         try {
             const response = await fetch(`${API_URL}/tasks`);
             if (!response.ok) {
                 const errorData = await response.json();
+                if (response.status === 503 && retryCount < 3) {
+                    // Wait for 2 seconds before retrying
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    return loadTasks(retryCount + 1);
+                }
                 throw new Error(errorData.message || 'Failed to load tasks');
             }
             const tasks = await response.json();
@@ -125,8 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTasksLeft();
     };
 
-    // Function to add a task
-    async function addTask(text, date) {
+    // Function to add a task with retry
+    async function addTask(text, date, retryCount = 0) {
         try {
             const response = await fetch(`${API_URL}/tasks`, {
                 method: 'POST',
@@ -138,6 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 const errorData = await response.json();
+                if (response.status === 503 && retryCount < 3) {
+                    // Wait for 2 seconds before retrying
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    return addTask(text, date, retryCount + 1);
+                }
                 throw new Error(errorData.message || 'Failed to add task');
             }
 
