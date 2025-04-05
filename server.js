@@ -16,7 +16,9 @@ app.use(cors({
     allowedHeaders: ['Content-Type']  // Allow specific headers
 }));
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '.')));
+
+// Serve static files from the root directory
+app.use(express.static(path.join(__dirname)));
 
 // MongoDB Connection
 const connectDB = async () => {
@@ -143,6 +145,11 @@ app.delete('/api/tasks/completed/all', async (req, res) => {
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
+});
+
+// Serve index.html for all other routes
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Start server
