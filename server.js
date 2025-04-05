@@ -20,12 +20,14 @@ app.use(express.json());
 // Serve static files from the root directory
 app.use(express.static(path.join(__dirname)));
 
-// MongoDB Connection
+// MongoDB Connection with timeout
 const connectDB = async () => {
     try {
         await mongoose.connect(process.env.MONGODB_URI, {
             useNewUrlParser: true,
-            useUnifiedTopology: true
+            useUnifiedTopology: true,
+            serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+            socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
         });
         console.log('Connected to MongoDB');
     } catch (err) {
@@ -58,10 +60,19 @@ const taskSchema = new mongoose.Schema({
 
 const Task = mongoose.model('Task', taskSchema);
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({ message: 'Something broke!' });
+});
+
 // Routes
 // Get all tasks
 app.get('/api/tasks', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection not ready' });
+        }
         const tasks = await Task.find().sort({ createdAt: -1 });
         res.json(tasks);
     } catch (error) {
@@ -73,6 +84,9 @@ app.get('/api/tasks', async (req, res) => {
 // Create a task
 app.post('/api/tasks', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection not ready' });
+        }
         console.log('Received task creation request:', req.body);
         
         if (!req.body.text) {
@@ -96,6 +110,9 @@ app.post('/api/tasks', async (req, res) => {
 // Update a task
 app.patch('/api/tasks/:id', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection not ready' });
+        }
         const task = await Task.findById(req.params.id);
         if (task) {
             if (req.body.text !== undefined) {
@@ -118,6 +135,9 @@ app.patch('/api/tasks/:id', async (req, res) => {
 // Delete a task
 app.delete('/api/tasks/:id', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection not ready' });
+        }
         const task = await Task.findById(req.params.id);
         if (task) {
             await task.deleteOne();
@@ -134,6 +154,9 @@ app.delete('/api/tasks/:id', async (req, res) => {
 // Delete all completed tasks
 app.delete('/api/tasks/completed/all', async (req, res) => {
     try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.status(503).json({ message: 'Database connection not ready' });
+        }
         await Task.deleteMany({ completed: true });
         res.json({ message: 'All completed tasks deleted' });
     } catch (error) {
@@ -144,7 +167,11 @@ app.delete('/api/tasks/completed/all', async (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
+    res.json({ 
+        status: 'ok', 
+        mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // Serve index.html for all other routes

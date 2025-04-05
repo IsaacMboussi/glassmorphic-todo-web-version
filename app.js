@@ -63,17 +63,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // Load tasks from API
-    const loadTasks = async () => {
+    // Function to load tasks
+    async function loadTasks() {
         try {
             const response = await fetch(`${API_URL}/tasks`);
-            tasks = await response.json();
-            renderTasks();
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to load tasks');
+            }
+            const tasks = await response.json();
+            displayTasks(tasks);
         } catch (error) {
             console.error('Error loading tasks:', error);
-            showNotification('Failed to load tasks. Please try again.', 'error');
+            showNotification('Error loading tasks: ' + error.message, 'error');
         }
-    };
+    }
 
     // Create task element
     const createTaskElement = (task) => {
@@ -121,24 +125,15 @@ document.addEventListener('DOMContentLoaded', () => {
         updateTasksLeft();
     };
 
-    // Add new task
-    const addTask = async (text) => {
-        if (text.trim() === '') return;
-
-        const dateTime = taskDateTime.value ? new Date(taskDateTime.value) : new Date();
-
+    // Function to add a task
+    async function addTask(text, date) {
         try {
-            console.log('Sending task to server:', { text: text.trim(), date: dateTime });
-            
             const response = await fetch(`${API_URL}/tasks`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ 
-                    text: text.trim(),
-                    date: dateTime
-                })
+                body: JSON.stringify({ text, date })
             });
 
             if (!response.ok) {
@@ -147,20 +142,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const newTask = await response.json();
-            console.log('Task added successfully:', newTask);
-            
-            tasks.unshift(newTask);
-            renderTasks();
-            taskInput.value = '';
-            taskDateTime.value = ''; // Clear the datetime input
-            
-            // Show success notification
-            showNotification(`Task "${text.trim()}" added successfully!`);
+            showNotification('Task added successfully!', 'success');
+            loadTasks();
         } catch (error) {
             console.error('Error adding task:', error);
-            showNotification(`Failed to add task: ${error.message}`, 'error');
+            showNotification('Error adding task: ' + error.message, 'error');
         }
-    };
+    }
 
     // Toggle task completion
     const toggleTask = async (id) => {
@@ -260,14 +248,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners
     addTaskBtn.addEventListener('click', () => {
-        addTask(taskInput.value);
+        addTask(taskInput.value, taskDateTime.value ? new Date(taskDateTime.value) : new Date());
         taskInput.value = '';
+        taskDateTime.value = ''; // Clear the datetime input
     });
 
     taskInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
-            addTask(taskInput.value);
+            addTask(taskInput.value, taskDateTime.value ? new Date(taskDateTime.value) : new Date());
             taskInput.value = '';
+            taskDateTime.value = ''; // Clear the datetime input
         }
     });
 
