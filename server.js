@@ -10,7 +10,11 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: '*',  // Allow requests from any origin
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],  // Allow specific HTTP methods
+    allowedHeaders: ['Content-Type']  // Allow specific headers
+}));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 

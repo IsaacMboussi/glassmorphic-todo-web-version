@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let notificationTimeout;
 
     // API endpoints
-    const API_URL = 'http://localhost:3000/api';
+    const API_URL = '/api';
 
     // Show notification
     const showNotification = (message, type = 'success') => {
