@@ -19,12 +19,20 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+const connectDB = async () => {
+    try {
+        await mongoose.connect(process.env.MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
+        console.log('Connected to MongoDB');
+    } catch (err) {
+        console.error('MongoDB connection error:', err);
+        // Don't exit the process, just log the error
+    }
+};
+
+connectDB();
 
 // Task Schema
 const taskSchema = new mongoose.Schema({
@@ -55,6 +63,7 @@ app.get('/api/tasks', async (req, res) => {
         const tasks = await Task.find().sort({ createdAt: -1 });
         res.json(tasks);
     } catch (error) {
+        console.error('Error fetching tasks:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -62,12 +71,22 @@ app.get('/api/tasks', async (req, res) => {
 // Create a task
 app.post('/api/tasks', async (req, res) => {
     try {
+        console.log('Received task creation request:', req.body);
+        
+        if (!req.body.text) {
+            return res.status(400).json({ message: 'Task text is required' });
+        }
+        
         const task = new Task({
-            text: req.body.text
+            text: req.body.text,
+            date: req.body.date || new Date()
         });
+        
         const newTask = await task.save();
+        console.log('Task created successfully:', newTask);
         res.status(201).json(newTask);
     } catch (error) {
+        console.error('Error creating task:', error);
         res.status(400).json({ message: error.message });
     }
 });
@@ -89,6 +108,7 @@ app.patch('/api/tasks/:id', async (req, res) => {
             res.status(404).json({ message: 'Task not found' });
         }
     } catch (error) {
+        console.error('Error updating task:', error);
         res.status(400).json({ message: error.message });
     }
 });
@@ -104,6 +124,7 @@ app.delete('/api/tasks/:id', async (req, res) => {
             res.status(404).json({ message: 'Task not found' });
         }
     } catch (error) {
+        console.error('Error deleting task:', error);
         res.status(500).json({ message: error.message });
     }
 });
@@ -114,8 +135,14 @@ app.delete('/api/tasks/completed/all', async (req, res) => {
         await Task.deleteMany({ completed: true });
         res.json({ message: 'All completed tasks deleted' });
     } catch (error) {
+        console.error('Error clearing completed tasks:', error);
         res.status(500).json({ message: error.message });
     }
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
 });
 
 // Start server

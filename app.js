@@ -128,6 +128,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateTime = taskDateTime.value ? new Date(taskDateTime.value) : new Date();
 
         try {
+            console.log('Sending task to server:', { text: text.trim(), date: dateTime });
+            
             const response = await fetch(`${API_URL}/tasks`, {
                 method: 'POST',
                 headers: {
@@ -139,16 +141,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
             });
 
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to add task');
+            }
+
             const newTask = await response.json();
+            console.log('Task added successfully:', newTask);
+            
             tasks.unshift(newTask);
             renderTasks();
+            taskInput.value = '';
             taskDateTime.value = ''; // Clear the datetime input
             
             // Show success notification
             showNotification(`Task "${text.trim()}" added successfully!`);
         } catch (error) {
             console.error('Error adding task:', error);
-            showNotification('Failed to add task. Please try again.', 'error');
+            showNotification(`Failed to add task: ${error.message}`, 'error');
         }
     };
 
@@ -156,6 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const toggleTask = async (id) => {
         try {
             const task = tasks.find(t => t._id === id);
+            console.log('Toggling task:', task);
+            
             const response = await fetch(`${API_URL}/tasks/${id}`, {
                 method: 'PATCH',
                 headers: {
@@ -164,7 +176,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ completed: !task.completed })
             });
 
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to update task');
+            }
+
             const updatedTask = await response.json();
+            console.log('Task updated successfully:', updatedTask);
+            
             tasks = tasks.map(t => t._id === id ? updatedTask : t);
             renderTasks();
             
@@ -173,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification(`Task marked as ${status}!`);
         } catch (error) {
             console.error('Error toggling task:', error);
-            showNotification('Failed to update task. Please try again.', 'error');
+            showNotification(`Failed to update task: ${error.message}`, 'error');
         }
     };
 
@@ -181,9 +200,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const deleteTask = async (id) => {
         try {
             const taskToDelete = tasks.find(t => t._id === id);
-            await fetch(`${API_URL}/tasks/${id}`, {
+            console.log('Deleting task:', taskToDelete);
+            
+            const response = await fetch(`${API_URL}/tasks/${id}`, {
                 method: 'DELETE'
             });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to delete task');
+            }
+
+            console.log('Task deleted successfully');
+            
             tasks = tasks.filter(task => task._id !== id);
             renderTasks();
             
@@ -191,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification(`Task "${taskToDelete.text}" deleted successfully!`);
         } catch (error) {
             console.error('Error deleting task:', error);
-            showNotification('Failed to delete task. Please try again.', 'error');
+            showNotification(`Failed to delete task: ${error.message}`, 'error');
         }
     };
 
@@ -199,9 +228,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearCompleted = async () => {
         try {
             const completedCount = tasks.filter(task => task.completed).length;
-            await fetch(`${API_URL}/tasks/completed/all`, {
+            console.log('Clearing completed tasks, count:', completedCount);
+            
+            const response = await fetch(`${API_URL}/tasks/completed/all`, {
                 method: 'DELETE'
             });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to clear completed tasks');
+            }
+
+            console.log('Completed tasks cleared successfully');
+            
             tasks = tasks.filter(task => !task.completed);
             renderTasks();
             
@@ -209,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification(`${completedCount} completed task(s) cleared!`);
         } catch (error) {
             console.error('Error clearing completed tasks:', error);
-            showNotification('Failed to clear completed tasks. Please try again.', 'error');
+            showNotification(`Failed to clear completed tasks: ${error.message}`, 'error');
         }
     };
 
